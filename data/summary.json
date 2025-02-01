@@ -1,0 +1,13 @@
+{
+  "mika": {
+    "username": "mika",
+    "passwordHash": "170440",
+    "wallet": {
+      "balance": 0.0,
+      "transactions": [],
+      "budgets": {},
+      "username": "mika",
+      "passwordHash": "170440"
+    }
+  }
+}

@@ -1,12 +1,29 @@
 import model.User;
 import service.FinanceApp;
+import service.UserSession;
 
+import java.util.Map;
 import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
         FinanceApp app = new FinanceApp();
         Scanner scanner = new Scanner(System.in);
+
+        Map<String, User> users = app.getUsers();
+        if (!users.isEmpty()) {
+            System.out.println("Обнаружены сохранённые пользователи. Хотите автоматически войти? (yes/no)");
+            String autoLogin = scanner.nextLine().trim().toLowerCase();
+
+            if (autoLogin.equals("yes")) {
+                for (String username : users.keySet()) {
+                    User user = users.get(username);
+                    System.out.println("Автовход для пользователя: " + username);
+                    new UserSession(user, scanner).start();
+                    return;
+                }
+            }
+        }
 
         while (true) {
             System.out.println("Введите команду (register, login, exit):");
@@ -24,45 +41,15 @@ public class Main {
                 System.out.println("Введите пароль:");
                 String password = scanner.nextLine();
                 User user = app.loginUser(username, password);
-
                 if (user != null) {
-                    while (true) {
-                        System.out.println("Введите команду (income, expense, budget, summary, logout):");
-                        String subCommand = scanner.nextLine();
-                        if (subCommand.equals("income")) {
-                            System.out.println("Категория:");
-                            String category = scanner.nextLine();
-                            System.out.println("Сумма:");
-                            double amount = Double.parseDouble(scanner.nextLine());
-                            user.getWallet().addIncome(category, amount);
-                        } else if (subCommand.equals("expense")) {
-                            System.out.println("Категория:");
-                            String category = scanner.nextLine();
-                            System.out.println("Сумма:");
-                            double amount = Double.parseDouble(scanner.nextLine());
-                            user.getWallet().addExpense(category, amount);
-                        } else if (subCommand.equals("budget")) {
-                            System.out.println("Категория:");
-                            String category = scanner.nextLine();
-                            System.out.println("Бюджет:");
-                            double amount = Double.parseDouble(scanner.nextLine());
-                            user.getWallet().setBudget(category, amount);
-                        } else if (subCommand.equals("summary")) {
-                            user.getWallet().printSummary();
-                        } else if (subCommand.equals("logout")) {
-                            break;
-                        } else {
-                            System.out.println("Неизвестная команда!");
-                        }
-                    }
+                    new UserSession(user, scanner).start();
                 }
             } else if (command.equals("exit")) {
-                System.out.println("Выход из программы.");
+                app.saveUsersToJson();
                 break;
             } else {
                 System.out.println("Неизвестная команда!");
             }
         }
-        scanner.close();
     }
 }

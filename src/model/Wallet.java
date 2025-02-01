@@ -1,19 +1,26 @@
 package model;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Serializable;
+import java.util.*;
 
-public class Wallet {
+public class Wallet implements Serializable {
+    private static final long serialVersionUID = 1L;
     private double balance;
     private List<Transaction> transactions;
     private Map<String, Double> budgets;
+    private String username;
+    private String passwordHash;
 
-    public Wallet() {
+    public Wallet(String username, String passwordHash) {
         this.balance = 0.0;
         this.transactions = new ArrayList<>();
         this.budgets = new HashMap<>();
+        this.username = username;
+        this.passwordHash = passwordHash;
     }
 
     public void addIncome(String category, double amount) {
@@ -38,14 +45,40 @@ public class Wallet {
         budgets.put(category, amount);
     }
 
+    public double getBalance() {
+        return balance;
+    }
+
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
+
+    public Map<String, Double> getBudgets() {
+        return budgets;
+    }
+
     public void printSummary() {
-        System.out.println("Общий доход: " + calculateTotalIncome());
+        double totalIncome = calculateTotalIncome();
+        double totalExpense = calculateTotalExpense();
+
+        System.out.println("Пользователь: " + username);
+        System.out.println("Общий доход: " + totalIncome);
         System.out.println("Доходы по категориям:");
-        printIncomeByCategory();
-        System.out.println("Общие расходы: " + calculateTotalExpense());
+        Map<String, Double> incomeByCategory = calculateIncomeByCategory();
+        for (Map.Entry<String, Double> entry : incomeByCategory.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue());
+        }
+
+        System.out.println("Общие расходы: " + totalExpense);
         System.out.println("Бюджет по категориям:");
-        printBudgetSummary();
+        Map<String, Double> budgetSummary = calculateBudgetSummary();
+        for (Map.Entry<String, Double> entry : budgetSummary.entrySet()) {
+            System.out.println(entry.getKey() + ": " + entry.getValue() + ", Оставшийся бюджет: " + (budgets.get(entry.getKey()) - entry.getValue()));
+        }
+
         System.out.println("Текущий баланс: " + balance);
+
+        saveSummaryToJson(totalIncome, incomeByCategory, totalExpense, budgetSummary);
     }
 
     private double calculateTotalIncome() {
@@ -62,7 +95,7 @@ public class Wallet {
                 .sum();
     }
 
-    private void printIncomeByCategory() {
+    private Map<String, Double> calculateIncomeByCategory() {
         Map<String, Double> incomeByCategory = new HashMap<>();
         for (Transaction t : transactions) {
             if (t.getType().equals("income")) {
@@ -72,21 +105,56 @@ public class Wallet {
                 );
             }
         }
-        for (Map.Entry<String, Double> entry : incomeByCategory.entrySet()) {
-            System.out.println(entry.getKey() + ": " + entry.getValue());
-        }
+        return incomeByCategory;
     }
 
-    private void printBudgetSummary() {
+    private Map<String, Double> calculateBudgetSummary() {
+        Map<String, Double> budgetSummary = new HashMap<>();
         for (Map.Entry<String, Double> entry : budgets.entrySet()) {
             String category = entry.getKey();
-            double budget = entry.getValue();
             double expense = transactions.stream()
                     .filter(t -> t.getType().equals("expense") && t.getCategory().equals(category))
                     .mapToDouble(Transaction::getAmount)
                     .sum();
-            double remaining = budget - expense;
-            System.out.println(category + ": " + budget + ", Оставшийся бюджет: " + remaining);
+            budgetSummary.put(category, expense);
+        }
+        return budgetSummary;
+    }
+
+    private void saveSummaryToJson(double totalIncome, Map<String, Double> incomeByCategory, double totalExpense, Map<String, Double> budgetSummary) {
+        try {
+            File file = new File("data/summary.json");
+            file.getParentFile().mkdirs();
+
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                writer.println("{");
+                writer.println("  \"user\": {");
+                writer.println("    \"username\": \"" + username + "\",");
+                writer.println("    \"passwordHash\": \"" + passwordHash + "\",");
+                writer.println("    \"balance\": " + balance);
+                writer.println("  },");
+                writer.println("  \"totalIncome\": " + totalIncome + ",");
+                writer.println("  \"incomeByCategory\": {");
+                int i = 0;
+                for (Map.Entry<String, Double> entry : incomeByCategory.entrySet()) {
+                    writer.println("    \"" + entry.getKey() + "\": " + entry.getValue() + (i++ < incomeByCategory.size() - 1 ? "," : ""));
+                }
+                writer.println("  },");
+                writer.println("  \"totalExpense\": " + totalExpense + ",");
+                writer.println("  \"budgetbyCategory\": {");
+                i = 0;
+                for (Map.Entry<String, Double> entry : budgetSummary.entrySet()) {
+                    double remaining = budgets.get(entry.getKey()) - entry.getValue();
+                    writer.println("    \"" + entry.getKey() + "\": {");
+                    writer.println("      \"spent\": " + entry.getValue() + ",");
+                    writer.println("      \"remainingBudget\": " + remaining);
+                    writer.println("    }" + (i++ < budgetSummary.size() - 1 ? "," : ""));
+                }
+                writer.println("  }");
+                writer.println("}");
+            }
+        } catch (IOException e) {
+            System.out.println("Ошибка при сохранении отчета: " + e.getMessage());
         }
     }
 }
