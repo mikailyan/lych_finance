@@ -52,7 +52,7 @@ public class FinanceApp {
     private void loadUsersFromJson() {
     File file = new File(DATA_FILE);
     if (!file.exists()) {
-        return; // Файл не найден, выходим
+        return;
     }
 
     try (Reader reader = new FileReader(DATA_FILE)) {
